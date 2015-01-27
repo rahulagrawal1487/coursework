@@ -42,22 +42,52 @@ b2grad = zeros(size(b2));
 % the gradient descent update to W1 would be W1 := W1 - alpha * W1grad, and similarly for W2, b1, b2. 
 % 
 
+%Cost due to training error
+hiddenLayerActivations_concatenated = zeros(hiddenSize, size(data,2));
+outputLayerActivations_concatenated = zeros(visibleSize, size(data,2));
+for idx = 1:size(data,2)
+    hiddenUnitInputs = W1*data(:,idx) + b1;
+    hiddenUnitActivations = sigmoid(hiddenUnitInputs);
+    hiddenLayerActivations_concatenated(:,idx) = hiddenUnitActivations;
+
+    outputLayerInputs = W2*hiddenUnitActivations + b2;
+    outputLayerActivations = sigmoid(outputLayerInputs);
+    outputLayerActivations_concatenated(:,idx) = outputLayerActivations;
+    cost = cost + 1/2 * (norm(outputLayerActivations - data(:,idx)))^2;
+end
+cost = 1/size(data,2) * cost;
+
+%cost due to weight decay
+cost = cost + lambda/2 * (sum(sum(W1.*W1)) + sum(sum(W2.*W2)));
+
+%cost due to sparsity penalty
+rho_hat = 1/size(data,2) * sum(hiddenLayerActivations_concatenated, 2);
+kl_div_term1 = sparsityParam*log(sparsityParam./rho_hat);
+kl_div_term2 = (1 - sparsityParam)*log((1 - sparsityParam)./(1 - rho_hat));
+kl_divergence = sum( kl_div_term1 + kl_div_term2 );
+cost = cost + beta*kl_divergence;
+
+%calculating gradients
+for idx = 1:size(data,2)
+    del_outputStage = - (data(:,idx) - outputLayerActivations_concatenated(:,idx)).* ...
+                        (outputLayerActivations_concatenated(:,idx).*(1 - outputLayerActivations_concatenated(:,idx)));
+
+    del_hiddenStage = ((W2'*del_outputStage) + beta*(-sparsityParam./rho_hat + ((1 - sparsityParam)./(1 - rho_hat)))).* ...
+                      (hiddenLayerActivations_concatenated(:,idx).*(1 - hiddenLayerActivations_concatenated(:,idx)));
 
 
+    W2grad = W2grad + del_outputStage*hiddenLayerActivations_concatenated(:,idx)';
+    W1grad = W1grad + del_hiddenStage*data(:,idx)';
+    b2grad = b2grad + del_outputStage;
+    b1grad = b1grad + del_hiddenStage;
+end
 
+% TODO: add KL sparsity term for the hidden layer gradients
 
-
-
-
-
-
-
-
-
-
-
-
-
+W2grad = 1/size(data,2)*W2grad + lambda*W2;
+W1grad = 1/size(data,2)*W1grad + lambda*W1;
+b2grad = 1/size(data,2)*b2grad;
+b1grad = 1/size(data,2)*b1grad;
 
 
 %-------------------------------------------------------------------

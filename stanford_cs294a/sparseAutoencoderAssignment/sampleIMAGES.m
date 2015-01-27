@@ -24,12 +24,16 @@ patches = zeros(patchsize*patchsize, numpatches);
 %  patch corresponding to the pixels in the block (21,21) to (30,30) of
 %  Image 1
 
+randomImgIdxs = randi(size(IMAGES,3), numpatches, 1);
+patchRowIdxs  = randi(size(IMAGES,1)-patchsize, numpatches, 1);
+patchColIdxs  = randi(size(IMAGES,2)-patchsize, numpatches, 1);
+for idx = 1:numpatches
+    patch = IMAGES(patchRowIdxs:patchRowIdxs+patchsize-1, ...
+                   patchColIdxs:patchColIdxs+patchsize-1, ...
+                   randomImgIdxs(idx));
 
-
-
-
-
-
+    patches(1:end, idx) = patch(:);
+end
 
 
 
