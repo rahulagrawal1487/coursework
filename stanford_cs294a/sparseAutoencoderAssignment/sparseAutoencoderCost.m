@@ -53,6 +53,7 @@ for idx = 1:size(data,2)
     outputLayerInputs = W2*hiddenUnitActivations + b2;
     outputLayerActivations = sigmoid(outputLayerInputs);
     outputLayerActivations_concatenated(:,idx) = outputLayerActivations;
+%     cost = cost + 1/2 * (outputLayerActivations - data(:,idx))'*(outputLayerActivations - data(:,idx));
     cost = cost + 1/2 * (norm(outputLayerActivations - data(:,idx)))^2;
 end
 cost = 1/size(data,2) * cost;
@@ -81,8 +82,6 @@ for idx = 1:size(data,2)
     b2grad = b2grad + del_outputStage;
     b1grad = b1grad + del_hiddenStage;
 end
-
-% TODO: add KL sparsity term for the hidden layer gradients
 
 W2grad = 1/size(data,2)*W2grad + lambda*W2;
 W1grad = 1/size(data,2)*W1grad + lambda*W1;
