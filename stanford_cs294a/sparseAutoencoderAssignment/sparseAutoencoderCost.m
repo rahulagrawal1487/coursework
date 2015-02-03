@@ -42,21 +42,13 @@ b2grad = zeros(size(b2));
 % the gradient descent update to W1 would be W1 := W1 - alpha * W1grad, and similarly for W2, b1, b2. 
 % 
 
-%Cost due to training error
-hiddenLayerActivations_concatenated = zeros(hiddenSize, size(data,2));
-outputLayerActivations_concatenated = zeros(visibleSize, size(data,2));
-for idx = 1:size(data,2)
-    hiddenUnitInputs = W1*data(:,idx) + b1;
-    hiddenUnitActivations = sigmoid(hiddenUnitInputs);
-    hiddenLayerActivations_concatenated(:,idx) = hiddenUnitActivations;
+numSamples = size(data,2);
 
-    outputLayerInputs = W2*hiddenUnitActivations + b2;
-    outputLayerActivations = sigmoid(outputLayerInputs);
-    outputLayerActivations_concatenated(:,idx) = outputLayerActivations;
-%     cost = cost + 1/2 * (outputLayerActivations - data(:,idx))'*(outputLayerActivations - data(:,idx));
-    cost = cost + 1/2 * (norm(outputLayerActivations - data(:,idx)))^2;
-end
-cost = 1/size(data,2) * cost;
+%Cost due to training error
+hiddenLayerActivations_concatenated = sigmoid(W1*data + repmat(b1,1,numSamples));
+outputLayerActivations_concatenated = sigmoid(W2*hiddenLayerActivations_concatenated + repmat(b2,1,numSamples));
+outputError = outputLayerActivations_concatenated - data;
+cost = 1/2 * 1/numSamples * sum(sum(outputError.^2));
 
 %cost due to weight decay
 cost = cost + lambda/2 * (sum(sum(W1.*W1)) + sum(sum(W2.*W2)));
@@ -69,24 +61,22 @@ kl_divergence = sum( kl_div_term1 + kl_div_term2 );
 cost = cost + beta*kl_divergence;
 
 %calculating gradients
-for idx = 1:size(data,2)
-    del_outputStage = - (data(:,idx) - outputLayerActivations_concatenated(:,idx)).* ...
-                        (outputLayerActivations_concatenated(:,idx).*(1 - outputLayerActivations_concatenated(:,idx)));
+sparsityTerm = (-sparsityParam./rho_hat + ((1 - sparsityParam)./(1 - rho_hat)));
+del_outputStage = - (data - outputLayerActivations_concatenated).* ...
+                    (outputLayerActivations_concatenated.*(1 - outputLayerActivations_concatenated));
 
-    del_hiddenStage = ((W2'*del_outputStage) + beta*(-sparsityParam./rho_hat + ((1 - sparsityParam)./(1 - rho_hat)))).* ...
-                      (hiddenLayerActivations_concatenated(:,idx).*(1 - hiddenLayerActivations_concatenated(:,idx)));
+del_hiddenStage = ((W2'*del_outputStage) + repmat(beta*sparsityTerm,1,numSamples)).* ...
+                  (hiddenLayerActivations_concatenated.*(1 - hiddenLayerActivations_concatenated));
 
+W2grad = W2grad + del_outputStage*hiddenLayerActivations_concatenated';
+W1grad = W1grad + del_hiddenStage*data';
+b2grad = b2grad + sum(del_outputStage,2);
+b1grad = b1grad + sum(del_hiddenStage,2);
 
-    W2grad = W2grad + del_outputStage*hiddenLayerActivations_concatenated(:,idx)';
-    W1grad = W1grad + del_hiddenStage*data(:,idx)';
-    b2grad = b2grad + del_outputStage;
-    b1grad = b1grad + del_hiddenStage;
-end
-
-W2grad = 1/size(data,2)*W2grad + lambda*W2;
-W1grad = 1/size(data,2)*W1grad + lambda*W1;
-b2grad = 1/size(data,2)*b2grad;
-b1grad = 1/size(data,2)*b1grad;
+W2grad = W2grad/numSamples + lambda*W2;
+W1grad = W1grad/numSamples + lambda*W1;
+b2grad = b2grad/numSamples;
+b1grad = b1grad/numSamples;
 
 
 %-------------------------------------------------------------------
@@ -108,3 +98,10 @@ function sigm = sigmoid(x)
     sigm = 1 ./ (1 + exp(-x));
 end
 
+function kld = kldiverge(x,sparsityParam)
+kld =sparsityParam.*log(sparsityParam./x)+(1-sparsityParam).*log((1-sparsityParam)./(1.-x));
+end
+function g = sigmoidGradient(z)
+g=zeros(size(z));
+g=sigmoid(z).*(1-sigmoid(z));
+end
